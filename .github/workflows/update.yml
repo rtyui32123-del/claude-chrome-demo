@@ -1,0 +1,46 @@
+name: 환희 지표 갱신
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "7 * * * *"   # 매시 7분 (약 1시간마다)
+  workflow_dispatch:       # Actions 탭에서 수동 실행 가능
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install yfinance pandas
+      - name: 점수 계산 (데이터를 전혀 못 받으면 실패 처리되어 기존 화면 유지)
+        run: python fear_greed.py --no-open --out site/index.html
+      - name: 아이콘 등 고정 파일 복사
+        run: cp -r static/. site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
